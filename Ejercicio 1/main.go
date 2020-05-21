@@ -23,64 +23,77 @@ type EquivalentSymbol struct {
 	English  string
 }
 
-var EnglishTopSymbol = []string{
-	"e", "t",
-}
-
 var MatchingSymbols = []string{
 	"‡", "*", "†", "9", ":", ".",
 }
 
 var EnglishSymbolRanking = []SymbolFrequency{
-	{"e", 12.02},
-	{"t", 9.10},
-	{"a", 8.12},
-	{"o", 7.68},
-	{"i", 7.31},
-	{"n", 6.95},
-	{"s", 6.28},
-	{"r", 6.02},
-	{"h", 5.92},
-	{"l", 4.32},
-	{"d", 3.98},
-	{"u", 2.88},
-	{"c", 2.71},
-	{"m", 2.61},
-	{"f", 2.30},
-	{"y", 2.11},
-	{"w", 2.09},
-	{"g", 2.03},
-	{"p", 1.82},
+	{"e", 12.70},
+	{"t", 9.05},
+	{"a", 8.16},
+	{"o", 7.50},
+	{"i", 6.96},
+	{"n", 6.74},
+	{"s", 6.32},
+	{"h", 6.09},
+	{"r", 5.98},
+	{"d", 4.25},
+	{"l", 4.02},
+	{"c", 2.78},
+	{"u", 2.75},
+	{"m", 2.40},
+	{"w", 2.36},
+	{"f", 2.22},
+	{"g", 2.01},
+	{"y", 1.97},
+	{"p", 1.92},
 	{"b", 1.49},
-	{"v", 1.11},
-	{"k", 0.69},
-	{"x", 0.17},
-	{"q", 0.11},
-	{"j", 0.10},
+	{"v", 0.97},
+	{"k", 0.77},
+	{"j", 0.15},
+	{"x", 0.14},
+	{"q", 0.09},
 	{"z", 0.07},
 }
 
 func main() {
 	symbolFrequencyMap := getSymbolRepetitionRate()
 	symbolFrequencyRanking := orderSymbolFrequencyList(symbolFrequencyMap)
-	equivalentSymbolList := compareWithLanguageTop(symbolFrequencyRanking)
-	textAfterET := replaceSymbolsInText(Message, equivalentSymbolList)
-	symbolH := searchTrigramThe(textAfterET)
-	textAfterH := strings.ReplaceAll(textAfterET, symbolH, "h")
-	equivalentSymbolList = compareWithLanguageRanking(symbolFrequencyRanking)
-	textAfterMatchingSymbols := replaceSymbolsInText(textAfterH, equivalentSymbolList)
-	fmt.Println(textAfterMatchingSymbols)
+	equivalentSymbolList := compareWithLanguageRanking(symbolFrequencyRanking)
+	textAfterMatchingSymbols := replaceSymbolsInText(Message, equivalentSymbolList)
+
+	symbolH := searchTrigramThe(textAfterMatchingSymbols, "the", []int{1,0,2})
+	textAfterH := strings.ReplaceAll(textAfterMatchingSymbols, symbolH, "h")
+
+	symbolA := searchTrigramThe(textAfterH, "and", []int{0,1,2})
+	textAfterA := strings.ReplaceAll(textAfterH, symbolA, "a")
+
+	symbolI :=  searchWordWithFiveLetters(textAfterA, "inthe")
+	textAfterI := strings.ReplaceAll(textAfterA, symbolI + "nthe", "inthe")
+	fmt.Println(textAfterI)
 }
 
 func getSymbolRepetitionRate() (symbolFrequencyList []SymbolFrequency) {
 	splitedMessage := strings.Split(Message, "")
 	for _, symbol := range splitedMessage {
 		if exist := verificateSymbolFrequencyExist(symbolFrequencyList, symbol); !exist {
-			numberRepetitions := strings.Count(Message, symbol)
-			symbolFrequencyList = append(symbolFrequencyList, SymbolFrequency{symbol, float64(numberRepetitions) / float64(MessageLength)})
+			numberRepetitions := float64(strings.Count(Message, symbol))
+			if verificateFrequencyExist(symbolFrequencyList, numberRepetitions){
+				numberRepetitions -= 0.001
+			}
+			symbolFrequencyList = append(symbolFrequencyList, SymbolFrequency{symbol, numberRepetitions})
 		}
 	}
 	return
+}
+
+func verificateFrequencyExist(symbolFrequencyList []SymbolFrequency, frequency float64) bool {
+	for _, v := range symbolFrequencyList {
+		if v.Frequency == frequency {
+			return true
+		}
+	}
+	return false
 }
 
 func verificateSymbolFrequencyExist(symbolFrequencyList []SymbolFrequency, symbol string) bool {
@@ -106,18 +119,11 @@ func orderSymbolFrequencyList(symbolFrequencyList []SymbolFrequency) []SymbolFre
 	return symbolFrequencyList
 }
 
-func compareWithLanguageTop(symbolFrequencyList []SymbolFrequency) (equivalentSymbolList []EquivalentSymbol) {
-	for index := 0; index < len(EnglishTopSymbol); index++ {
-		equivalentSymbolList = append(equivalentSymbolList, EquivalentSymbol{symbolFrequencyList[index].Symbol, EnglishTopSymbol[index]})
-	}
-	return
-}
-
 func compareWithLanguageRanking(symbolFrequencyList []SymbolFrequency) (equivalentSymbolList []EquivalentSymbol) {
 	for index := 0; index < len(symbolFrequencyList); index++ {
-		if verificateMatchingSymbolExist(symbolFrequencyList[index].Symbol){
+		//if verificateMatchingSymbolExist(symbolFrequencyList[index].Symbol){
 			equivalentSymbolList = append(equivalentSymbolList, EquivalentSymbol{symbolFrequencyList[index].Symbol, EnglishSymbolRanking[index].Symbol})
-		}
+		//}
 	}
 	return
 }
@@ -138,16 +144,40 @@ func replaceSymbolsInText(text string, equivalentSymbolList []EquivalentSymbol) 
 	return text
 }
 
-func searchTrigramThe(text string) string {
+func searchTrigramThe(text string, trigram string, positions []int) string {
 	runes := []rune(text)
+	splitedTrigram := strings.Split(trigram, "")
 	var symbolFrequencyMap = make(map[string]float64)
 	for index, _ := range runes {
 		word := string(runes[index : index+3])
 		splitedWord := strings.Split(word, "")
-		if splitedWord[0] == "t" && splitedWord[2] == "e" {
-			symbolFrequencyMap[splitedWord[1]] += 1
+
+		if splitedWord[positions[1]] == splitedTrigram[positions[1]] && splitedWord[positions[2]] == splitedTrigram[positions[2]] {
+			symbolFrequencyMap[splitedWord[positions[0]]] += 1
 		}
 	}
 	symbolFrequencyOrderedList := rankBySymbolFrequency(symbolFrequencyMap)
 	return symbolFrequencyOrderedList[0].Symbol
+}
+
+
+func searchWordWithFiveLetters(text string, trigram string) string {
+	runes := []rune(text)
+	runesTrigram :=   []rune(trigram)
+	var symbolFrequencyMap = make(map[string]float64)
+	for index, _ := range runes {
+		word := string(runes[index : index+5])
+		splitedWord := strings.Split(word, "")
+		runesWord :=   []rune(word)
+		if string(runesTrigram[1: 5]) == string(runesWord[1: 5]){
+			symbolFrequencyMap[splitedWord[0]] += 1
+		}
+	}
+	symbolFrequencyOrderedList := rankBySymbolFrequency(symbolFrequencyMap)
+	if len(symbolFrequencyOrderedList) > 0 {
+		return symbolFrequencyOrderedList[0].Symbol
+	} else {
+		return ""
+	}
+
 }
